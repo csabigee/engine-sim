@@ -36,19 +36,31 @@ ysError Shaders::Initialize(
     m_mainStage->SetFlagBit(0);
     m_mainStage->SetType(dbasic::ShaderStage::Type::FullPass);
 
+    const int ScreenVariablesSlot = 0;
+    const int ObjectVariablesSlot = 1;
+    const int SkinningVariablesSlot = 2;
+    const int LightingSlot = 3;
+    const int TextureSlot = 0;
+
+    m_mainStage->SetConstantBufferSlot("ScreenVariables", ScreenVariablesSlot);
+    m_mainStage->SetConstantBufferSlot("ObjectVariables", ObjectVariablesSlot);
+    m_mainStage->SetConstantBufferSlot("SkinningVariables", SkinningVariablesSlot);
+    m_mainStage->SetConstantBufferSlot("Lighting", LightingSlot);
+    m_mainStage->SetTextureSlot("diffuseTex", TextureSlot);
+
     m_mainStage->NewConstantBuffer<dbasic::ShaderScreenVariables>(
         "Buffer::ScreenData",
-        0,
+        ScreenVariablesSlot,
         dbasic::ShaderStage::ConstantBufferBinding::BufferType::SceneData,
         &m_screenVariables);
     m_mainStage->NewConstantBuffer<dbasic::ShaderObjectVariables>(
         "Buffer::ObjectData",
-        1,
+        ObjectVariablesSlot,
         dbasic::ShaderStage::ConstantBufferBinding::BufferType::ObjectData,
         &m_objectVariables);
     m_mainStage->NewConstantBuffer<dbasic::LightingControls>(
         "Buffer::LightingData",
-        3,
+        LightingSlot,
         dbasic::ShaderStage::ConstantBufferBinding::BufferType::SceneData,
         &m_lightingControls);
 
@@ -60,19 +72,25 @@ ysError Shaders::Initialize(
     m_uiStage->SetClearTarget(false);
     m_uiStage->SetType(dbasic::ShaderStage::Type::FullPass);
 
+    m_uiStage->SetConstantBufferSlot("ScreenVariables", ScreenVariablesSlot);
+    m_uiStage->SetConstantBufferSlot("ObjectVariables", ObjectVariablesSlot);
+    m_uiStage->SetConstantBufferSlot("SkinningVariables", SkinningVariablesSlot);
+    m_uiStage->SetConstantBufferSlot("Lighting", LightingSlot);
+    m_uiStage->SetTextureSlot("diffuseTex", TextureSlot);
+
     m_uiStage->NewConstantBuffer<dbasic::ShaderScreenVariables>(
         "Buffer::ScreenData",
-        0,
+        ScreenVariablesSlot,
         dbasic::ShaderStage::ConstantBufferBinding::BufferType::SceneData,
         &m_uiScreenVariables);
     m_uiStage->NewConstantBuffer<dbasic::ShaderObjectVariables>(
         "Buffer::ObjectData",
-        1,
+        ObjectVariablesSlot,
         dbasic::ShaderStage::ConstantBufferBinding::BufferType::ObjectData,
         &m_objectVariables);
     m_uiStage->NewConstantBuffer<dbasic::LightingControls>(
         "Buffer::LightingData",
-        3,
+        LightingSlot,
         dbasic::ShaderStage::ConstantBufferBinding::BufferType::SceneData,
         &m_lightingControls);
 
