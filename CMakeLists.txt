@@ -31,6 +31,41 @@ project(engine-sim VERSION 0.1.12)
 
 set(CMAKE_CXX_STANDARD 17)
 
+if (EMSCRIPTEN)
+    set(EM_FLAGS
+        "SHELL:-s USE_SDL=2"
+        "SHELL:-s USE_SDL_IMAGE=2"
+    )
+    add_compile_options(
+        -msimd128 -msse
+        -O3
+        -g -gsource-map
+        ${EM_FLAGS}
+    )
+    add_link_options(
+        "SHELL:-s SINGLE_FILE=1"
+        "SHELL:-s ENVIRONMENT=web"
+        "SHELL:-s OFFSCREEN_FRAMEBUFFER=1"
+        "SHELL:-s INITIAL_MEMORY=67108864"
+        #"SHELL:-s ALLOW_MEMORY_GROWTH"
+        #"SHELL:-s USE_PTHREADS=1"
+        "--embed-file=data"
+        -O3
+        -g -gsource-map
+        ${EM_FLAGS}
+        "SHELL:-s MIN_WEBGL_VERSION=2"
+        "SHELL:-s MAX_WEBGL_VERSION=2"
+        "SHELL:-s USE_WEBGL2=1"
+        "SHELL:-s FULL_ES2"
+        "SHELL:-s FULL_ES3"
+        "SHELL:-s ASSERTIONS=1"
+    )
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+
+    # TODO: copy necessary data to /data
+    set(ENGINE_SIM_DATA_ROOT "/data")
+endif()
+
 # ========================================================
 # GTEST
 

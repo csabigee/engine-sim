@@ -28,6 +28,10 @@
 #include "../include/discord.h"
 #endif
 
+#if __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 std::string EngineSimApplication::s_buildVersion = ENGINE_SIM_PROJECT_VERSION "a" "-" ENGINE_SIM_SYSTEM_NAME;
 
 struct LoggingErrorHandler : ysErrorHandler {
@@ -388,12 +392,13 @@ float EngineSimApplication::unitsToPixels(float units) const {
 }
 
 void EngineSimApplication::run() {
-    while (true) {
+    // TODO: move out to a separate function?
+    auto mainLoop = [&]() {
         m_engine.StartFrame();
 
-        if (!m_engine.IsOpen()) break;
+        if (!m_engine.IsOpen()) return false;
         if (m_engine.ProcessKeyDown(ysKey::Code::Escape)) {
-            break;
+            return false;
         }
 
         if (m_engine.ProcessKeyDown(ysKey::Code::Return)) {
@@ -455,7 +460,22 @@ void EngineSimApplication::run() {
         if (isRecording()) {
             recordFrame();
         }
+
+        return true;
+    };
+
+#if __EMSCRIPTEN__
+    auto run = [](void * loop)
+    {
+        (*static_cast<decltype(mainLoop)*>(loop))();
+    };
+    emscripten_set_main_loop_arg(run, &mainLoop, 0, true);
+#else
+    while (true) {
+        const bool contin = mainLoop();
+        if (!contin) break;
     }
+#endif
 
     if (isRecording()) {
         stopRecording();
