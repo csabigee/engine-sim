@@ -9,6 +9,9 @@
 #undef min
 #undef max
 
+// Not necessary any more?
+#define SEPARATE_THREAD 0
+
 Synthesizer::Synthesizer() {
     m_inputChannels = nullptr;
     m_inputChannelCount = 0;
@@ -106,7 +109,9 @@ void Synthesizer::initializeImpulseResponse(
 
 void Synthesizer::startAudioRenderingThread() {
     m_run = true;
+#if SEPARATE_THREAD
     m_thread = new std::thread(&Synthesizer::audioRenderingThread, this);
+#endif
 }
 
 void Synthesizer::endAudioRenderingThread() {
@@ -114,8 +119,10 @@ void Synthesizer::endAudioRenderingThread() {
         m_run = false;
         endInputBlock();
 
+#if SEPARATE_THREAD
         m_thread->join();
         delete m_thread;
+#endif
 
         m_thread = nullptr;
     }
@@ -140,13 +147,19 @@ void Synthesizer::destroy() {
 }
 
 int Synthesizer::readAudioOutput(int samples, int16_t *buffer) {
+#if SEPARATE_THREAD
     std::lock_guard<std::mutex> lock(m_lock0);
+#endif
 
-    const int newDataLength = m_audioBuffer.size();
+    int newDataLength = m_audioBuffer.size();
     if (newDataLength >= samples) {
         m_audioBuffer.readAndRemove(samples, buffer);
     }
     else {
+#if !SEPARATE_THREAD
+        renderAudio();
+        newDataLength = std::min((int)m_audioBuffer.size(), samples);
+#endif
         m_audioBuffer.readAndRemove(newDataLength, buffer);
         memset(
             buffer + newDataLength,
@@ -160,10 +173,14 @@ int Synthesizer::readAudioOutput(int samples, int16_t *buffer) {
 }
 
 void Synthesizer::waitProcessed() {
+#if SEPARATE_THREAD
     {
         std::unique_lock<std::mutex> lk(m_lock0);
         m_cv0.wait(lk, [this] { return m_processed; });
     }
+#else
+    assert(false);
+#endif
 }
 
 void Synthesizer::writeInput(const double *data) {
@@ -196,7 +213,9 @@ void Synthesizer::writeInput(const double *data) {
 }
 
 void Synthesizer::endInputBlock() {
-    std::unique_lock<std::mutex> lk(m_inputLock); 
+#if SEPARATE_THREAD
+    std::unique_lock<std::mutex> lk(m_inputLock);
+#endif
 
     for (int i = 0; i < m_inputChannelCount; ++i) {
         m_inputChannels[i].data.removeBeginning(m_inputSamplesRead);
@@ -209,8 +228,10 @@ void Synthesizer::endInputBlock() {
     m_inputSamplesRead = 0;
     m_processed = false;
 
+#if SEPARATE_THREAD
     lk.unlock();
     m_cv0.notify_one();
+#endif
 }
 
 void Synthesizer::audioRenderingThread() {
@@ -221,6 +242,14 @@ void Synthesizer::audioRenderingThread() {
 
 #undef max
 void Synthesizer::renderAudio() {
+#if !SEPARATE_THREAD
+    const bool inputAvailable =
+        m_inputChannels[0].data.size() > 0
+        && m_audioBuffer.size() < 2000;
+    if (!inputAvailable) {
+        return;
+    }
+#else
     std::unique_lock<std::mutex> lk0(m_lock0);
 
     m_cv0.wait(lk0, [this] {
@@ -229,6 +258,7 @@ void Synthesizer::renderAudio() {
             && m_audioBuffer.size() < 2000;
         return !m_run || (inputAvailable && !m_processed);
     });
+#endif
 
     const int n = std::min(
         std::max(0, 2000 - (int)m_audioBuffer.size()),
@@ -241,7 +271,9 @@ void Synthesizer::renderAudio() {
     m_inputSamplesRead = n;
     m_processed = true;
 
+#if SEPARATE_THREAD
     lk0.unlock();
+#endif
 
     for (int i = 0; i < m_inputChannelCount; ++i) {
         m_filters[i].airNoiseLowPass.setCutoffFrequency(
@@ -253,7 +285,9 @@ void Synthesizer::renderAudio() {
         m_audioBuffer.write(renderAudio(i));
     }
 
+#if SEPARATE_THREAD
     m_cv0.notify_one();
+#endif
 }
 
 double Synthesizer::getLatency() const {
@@ -332,16 +366,22 @@ int16_t Synthesizer::renderAudio(int inputSample) {
 }
 
 double Synthesizer::getLevelerGain() {
+#if SEPARATE_THREAD
     std::lock_guard<std::mutex> lock(m_lock0);
+#endif
     return m_levelingFilter.getAttenuation();
 }
 
 Synthesizer::AudioParameters Synthesizer::getAudioParameters() {
+#if SEPARATE_THREAD
     std::lock_guard<std::mutex> lock(m_lock0);
+#endif
     return m_audioParameters;
 }
 
 void Synthesizer::setAudioParameters(const AudioParameters &params) {
+#if SEPARATE_THREAD
     std::lock_guard<std::mutex> lock(m_lock0);
+#endif
     m_audioParameters = params;
 }
