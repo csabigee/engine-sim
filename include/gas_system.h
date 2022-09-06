@@ -7,6 +7,12 @@
 #include <cfloat>
 #include <cmath>
 
+#define USE_FLOATS_FOR_GAS 1
+
+#if USE_FLOATS_FOR_GAS
+#define double float
+#endif // USE_FLOATS_FOR_GAS
+
 class GasSystem {
     public:
         struct Mix {
@@ -69,7 +75,7 @@ class GasSystem {
         double gainN(double dn, double E_k_per_mol, const Mix &mix = {});
         void dissipateExcessVelocity();
 
-        void updateVelocity(double dt, double beta = 1.0);
+        void updateVelocity(double dt, double beta = 1.0f);
         void dissipateVelocity(double dt, double timeConstant);
 
         static double flow(const FlowParameters &params);
@@ -89,7 +95,7 @@ class GasSystem {
         inline double n(double V) const;
         inline double kineticEnergy() const;
         inline double kineticEnergy(double n) const;
-        inline double kineticEnergyPerMol() const { return kineticEnergy(1.0); }
+        inline double kineticEnergyPerMol() const { return kineticEnergy(1.0f); }
         inline double totalEnergy() const;
         inline double bulkKineticEnergy() const;
         inline double c() const;
@@ -122,16 +128,16 @@ class GasSystem {
 };
 
 inline constexpr double GasSystem::kineticEnergyPerMol(double T, int degreesOfFreedom) {
-    return 0.5 * T * constants::R * degreesOfFreedom;
+    return 0.5f * T * constants::R * degreesOfFreedom;
 }
 
 inline constexpr double GasSystem::heatCapacityRatio(int degreesOfFreedom) {
-    return 1.0 + (2.0 / degreesOfFreedom);
+    return 1.0f + (2.0f / degreesOfFreedom);
 }
 
 inline double GasSystem::chokedFlowLimit(int degreesOfFreedom) {
     const double hcr = heatCapacityRatio(degreesOfFreedom);
-    return std::pow((2.0 / (hcr + 1)), hcr / (hcr - 1));
+    return std::pow((2.0f / (hcr + 1)), hcr / (hcr - 1));
 }
 
 inline double GasSystem::chokedFlowRate(int degreesOfFreedom) {
@@ -163,7 +169,8 @@ inline double GasSystem::kineticEnergy(double n) const {
 }
 
 inline double GasSystem::c() const {
-    if (n() == 0 || kineticEnergy() == 0) return 0;
+    // Using | instead of || gives a big perf boost (1 branch vs 2)
+    if ((n() == 0) | (kineticEnergy() == 0)) return 0;
 
     const double hcr = heatCapacityRatio();
     const double staticPressure = pressure();
@@ -176,12 +183,7 @@ inline double GasSystem::c() const {
 inline double GasSystem::totalEnergy() const {
     if (n() == 0) return 0;
 
-    const double invMass = 1 / mass();
-    const double v_x = m_state.momentum[0] * invMass;
-    const double v_y = m_state.momentum[1] * invMass;
-    const double v_squared = v_x * v_x + v_y * v_y;
-
-    return kineticEnergy() + 0.5 * mass() * v_squared;
+    return kineticEnergy() + bulkKineticEnergy();
 }
 
 inline double GasSystem::bulkKineticEnergy() const {
@@ -191,11 +193,12 @@ inline double GasSystem::bulkKineticEnergy() const {
     const double v_x = m_state.momentum[0] / m;
     const double v_y = m_state.momentum[1] / m;
     const double v_squared = v_x * v_x + v_y * v_y;
-    return 0.5 * m * v_squared;
+    return 0.5f * m * v_squared;
 }
 
 inline double GasSystem::dynamicPressure(double dx, double dy) const {
-    if (n() == 0 || kineticEnergy() == 0) return 0;
+    // Using | instead of || gives a big perf boost (1 branch vs 2)
+    if ((n() == 0) | (kineticEnergy() == 0)) return 0;
 
     const double inverseMass = 1 / this->mass();
     const double v = inverseMass * (dx * m_state.momentum[0] + dy * m_state.momentum[1]);
@@ -230,7 +233,7 @@ inline double GasSystem::dynamicPressure(double dx, double dy) const {
         x_d = x;
     }
 
-    return staticPressure * (std::sqrt(x_d) - 1);
+    return staticPressure * (sqrtf(x_d) - 1);
 }
 
 inline double GasSystem::mass() const {
@@ -240,13 +243,13 @@ inline double GasSystem::mass() const {
 inline double GasSystem::pressure() const {
     const double volume = this->volume();
     return (volume != 0)
-        ? kineticEnergy() / (0.5 * m_degreesOfFreedom * volume)
+        ? kineticEnergy() / (0.5f * m_degreesOfFreedom * volume)
         : 0;
 }
 
 inline double GasSystem::temperature() const {
     if (n() == 0) return 0;
-    else return kineticEnergy() / (0.5 * m_degreesOfFreedom * n() * constants::R);
+    else return kineticEnergy() / (0.5f * m_degreesOfFreedom * n() * constants::R);
 }
 
 inline double GasSystem::velocity_x() const {
@@ -282,5 +285,7 @@ inline double GasSystem::n_o2() const {
 inline double GasSystem::heatCapacityRatio() const {
     return heatCapacityRatio(m_degreesOfFreedom);
 }
+
+#undef double
 
 #endif /* ATG_ENGINE_SIM_GAS_SYSTEM_H */
