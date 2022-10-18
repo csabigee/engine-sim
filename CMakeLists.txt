@@ -4,7 +4,7 @@ include(CMakeDependentOption)
 
 option(DTV "Enable video output" OFF)
 option(PIRANHA_ENABLED "Enable scripting input" ON)
-option(DISCORD_ENABLED "Enable Discord Rich Presence" ON)
+cmake_dependent_option(DISCORD_ENABLED "Enable Discord Rich Presence" OFF EMSCRIPTEN ON)
 
 # Default to compiling as Release in single-configuration generators
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
