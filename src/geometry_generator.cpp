@@ -974,9 +974,8 @@ dbasic::Vertex *GeometryGenerator::writeVertex() {
 
 void GeometryGenerator::startShape() {
     m_state.currentShape.BaseIndex = m_state.indexPointer;
-    m_state.currentShape.BaseVertex = m_state.vertexPointer;
+    m_state.currentShape.BaseVertex = 0;
     m_state.currentShape.FaceCount = 0;
-    m_state.currentShape.VertexData = &m_vertexData[m_state.vertexPointer];
 }
 
 void GeometryGenerator::endShape(GeometryIndices *indices) {

@@ -13,8 +13,6 @@ public:
         int BaseIndex = -1;
         int BaseVertex = -1;
         int FaceCount = -1;
-
-        dbasic::Vertex *VertexData = nullptr;
     };
 
     struct LineRingParameters {
