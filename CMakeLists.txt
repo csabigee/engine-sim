@@ -48,6 +48,7 @@ if (EMSCRIPTEN)
         "SHELL:-s ENVIRONMENT=web"
         "SHELL:-s OFFSCREEN_FRAMEBUFFER=1"
         "SHELL:-s INITIAL_MEMORY=67108864"
+        "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html"
         #"SHELL:-s ALLOW_MEMORY_GROWTH"
         #"SHELL:-s USE_PTHREADS=1"
         "--embed-file=data"
