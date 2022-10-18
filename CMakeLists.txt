@@ -61,7 +61,7 @@ if (EMSCRIPTEN)
     )
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
 
-    # TODO: copy necessary data to /data
+    # Copy necessary data to /data
     set(ENGINE_SIM_DATA_ROOT "/data")
 endif()
 
@@ -348,6 +348,25 @@ configure_file(include/build_info.h.in
     generated/build_info.h @ONLY)
 target_include_directories(engine-sim-app
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+
+# ========================================================
+# Package data
+if (EMSCRIPTEN)
+    add_custom_command(TARGET engine-sim-app PRE_LINK
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets
+                ${CMAKE_CURRENT_BINARY_DIR}${ENGINE_SIM_DATA_ROOT}/assets
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/es
+                ${CMAKE_CURRENT_BINARY_DIR}${ENGINE_SIM_DATA_ROOT}/es
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/submodules/delta-studio/engines/basic/fonts
+                ${CMAKE_CURRENT_BINARY_DIR}${ENGINE_SIM_DATA_ROOT}/dependencies/submodules/delta-studio/engines/basic/fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/submodules/delta-studio/engines/basic/shaders
+                ${CMAKE_CURRENT_BINARY_DIR}${ENGINE_SIM_DATA_ROOT}/dependencies/submodules/delta-studio/engines/basic/shaders
+    )
+endif()
 
 # ========================================================
 # GTEST
