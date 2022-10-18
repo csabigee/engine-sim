@@ -397,11 +397,54 @@ void EngineSimApplication::run() {
         m_engine.StartFrame();
 
         if (!m_engine.IsOpen()) return false;
+#if !__EMSCRIPTEN__
         if (m_engine.ProcessKeyDown(ysKey::Code::Escape)) {
             return false;
         }
+#endif
 
-        if (m_engine.ProcessKeyDown(ysKey::Code::Return)) {
+#if __EMSCRIPTEN__
+        // Check for a new file
+        const bool new_file_available = EM_ASM_INT({ return getAndResetReadyFlag(); });
+
+        bool shouldReloadScript = false;
+        if (new_file_available) {
+            char *new_file_data = (char*)EM_ASM_PTR({ return convertToString(new_file_data); });
+            char *main_mr_data = (char*)EM_ASM_PTR({ return convertToString(main_mr_data); });
+            printf("New engine:\n%s\n", new_file_data);
+            printf("New main.mr:\n%s\n", main_mr_data);
+
+            // See if it has the correct import
+            if (strstr(main_mr_data, "import \"engines/uploaded.mr\"") != 0) {
+                // Replace our data file
+                FILE *output = fopen(m_dataRoot.Append("assets/engines/uploaded.mr").ToString().c_str(), "wb");
+                assert(output != nullptr);
+                fwrite(new_file_data, strlen(new_file_data), 1, output);
+                fclose(output);
+
+                // Replace our main.mr file
+                output = fopen(m_dataRoot.Append("assets/main.mr").ToString().c_str(), "wb");
+                assert(output != nullptr);
+                fwrite(main_mr_data, strlen(main_mr_data), 1, output);
+                fclose(output);
+
+                // Trigger a reload
+                shouldReloadScript = true;
+            } else {
+                // Format needs updating
+                printf("WARNING: engine import not found in main.mr!\n\nPlease replace:\n\nimport \"engines/...\"\n\nwith:\n\nimport \"engines/uploaded.mr\"\n");
+                //EM_ASM({ alert("model is missing 'public node main'. Please update to the latest format: https://youtu.be/cXrLj42zdeI?t=864, or use the main.mr input box"); });
+                EM_ASM({ alert("WARNING: engine import not found in main.mr!\n\nPlease replace:\n\nimport \"engines/...\"\n\nwith:\n\nimport \"engines/uploaded.mr\""); });
+            }
+
+            // Cleanup
+            free(new_file_data);
+            free(main_mr_data);
+        }
+#else
+        const bool shouldReloadScript = m_engine.ProcessKeyDown(ysKey::Code::Return);
+#endif
+        if (shouldReloadScript) {
             m_audioSource->SetMode(ysAudioSource::Mode::Stop);
             loadScript();
             if (m_simulator->getEngine() != nullptr) {
