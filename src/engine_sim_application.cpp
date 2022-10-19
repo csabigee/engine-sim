@@ -760,6 +760,17 @@ void EngineSimApplication::loadScript() {
             engine = output.engine;
             vehicle = output.vehicle;
             transmission = output.transmission;
+        } else {
+            outputLog.close();
+            std::ifstream file(outputLogPath, std::ios::in);
+            printf("Compiler errors, if any:\n");
+            std::string line;
+            while (std::getline(file, line)) {
+                printf("> %s\n", line.c_str());
+            }
+#if __EMSCRIPTEN__
+            EM_ASM({ alert("Failed to compile scripts - check output below the sim"); });
+#endif
         }
 
         compiler.destroy();
