@@ -2,14 +2,22 @@ cmake_minimum_required(VERSION 3.10)
 
 include(CMakeDependentOption)
 
-option(DTV "Enable video output" OFF)
-option(PIRANHA_ENABLED "Enable scripting input" ON)
-cmake_dependent_option(DISCORD_ENABLED "Enable Discord Rich Presence" OFF EMSCRIPTEN ON)
-
 # Default to compiling as Release in single-configuration generators
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
 endif()
+
+# Enable group projects in folders
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "cmake")
+
+project(engine-sim VERSION 0.1.12)
+
+set(CMAKE_CXX_STANDARD 17)
+
+option(DTV "Enable video output" OFF)
+option(PIRANHA_ENABLED "Enable scripting input" ON)
+cmake_dependent_option(DISCORD_ENABLED "Enable Discord Rich Presence" OFF EMSCRIPTEN ON)
 
 if (DTV)
     add_compile_definitions(ATG_ENGINE_SIM_VIDEO_CAPTURE)
@@ -22,14 +30,6 @@ endif (PIRANHA_ENABLED)
 if (DISCORD_ENABLED)
     add_compile_definitions(ATG_ENGINE_SIM_DISCORD_ENABLED)
 endif (DISCORD_ENABLED)
-
-# Enable group projects in folders
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "cmake")
-
-project(engine-sim VERSION 0.1.12)
-
-set(CMAKE_CXX_STANDARD 17)
 
 if (EMSCRIPTEN)
     set(COMMON_FLAGS
