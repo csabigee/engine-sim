@@ -36,8 +36,8 @@ if (EMSCRIPTEN)
         "SHELL:-s USE_SDL=2"
         "SHELL:-s USE_SDL_IMAGE=2"
         # TODO: hook these up to debug flags
-        -O1
-        -g -gsource-map
+        -O3
+        #-g -gsource-map
     )
     add_compile_options(
         -msimd128 -msse
@@ -58,7 +58,7 @@ if (EMSCRIPTEN)
         "SHELL:-s USE_WEBGL2=1"
         "SHELL:-s FULL_ES2"
         "SHELL:-s FULL_ES3"
-        "SHELL:-s ASSERTIONS=1"
+        #"SHELL:-s ASSERTIONS=1"
     )
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
 
