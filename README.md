@@ -53,33 +53,23 @@ The RPM hold feature will hold the engine at a specific RPM and also measure the
 I wrote this to demo in a [YouTube video](https://youtu.be/RKT-sKtR970), not as a real product. If you would like it to become a usable product please reach out to me or join my Discord (link can be found in the description of the aforementioned YouTube video). I use this codebase for my own purposes and so it might change frequently and without warning.
 
 ## How do I build it? (Ignore this section if you're not a developer!)
-**Note: this project currently only builds on Windows!**
+### Step 1 - Install Dependencies
+``` sudo apt-get install git clang libsdl2-dev libsdl2-image-dev flex bison cmake libboost-all-dev ```
 
-### Step 1 - Clone the repository
-```git clone --recurse-submodules https://github.com/ange-yaghi/engine-sim```
+### Step 2 - Clone the repository
+``` git clone --recurse-submodules https://github.com/csabigee/engine-sim -b rpi5-build```
 
-### Step 2 - Install CMake
-Install the latest version of CMake [here](https://cmake.org/) if it's not already installed.
-
-### Step 3 - Install Dependencies
-You will need to install the following dependencies and CMake will need to be able to locate them (ie. they need to be listed on your PATH):
-
-    1. SDL2
-    2. SDL2_image
-    3. Boost (make sure to build the optional dependencies)
-    4. Flex and Bison
-
-### Step 4 - Build and Run
+### Step 3 - Build and Run
 From the root directory of the project, run the following commands:
-
 ```
+cd engine-sim
 mkdir build
 cd build
-cmake ..
-cmake --build .
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ../
+cmake --build . --target engine-sim-app -j
+./engine-sim-app
 ```
 
-If these steps are successful, a Visual Studio solution will be generated in ```build```. You can open this project with Visual Studio and then run the ```engine-sim-app``` project. If you encounter an error telling you that you're missing DLLs, you will have to copy those DLLs to your EXE's directory.
 
 ## Patreon Supporters
 
