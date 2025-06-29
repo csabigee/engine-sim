@@ -4,22 +4,12 @@
 #include "geometry_generator.h"
 #include "simulator.h"
 #include "engine.h"
-#include "simulation_object.h"
 #include "ui_manager.h"
 #include "dynamometer.h"
-#include "oscilloscope.h"
 #include "audio_buffer.h"
 #include "convolution_filter.h"
 #include "shaders.h"
-#include "engine_view.h"
-#include "right_gauge_cluster.h"
-#include "cylinder_temperature_gauge.h"
 #include "synthesizer.h"
-#include "oscilloscope_cluster.h"
-#include "performance_cluster.h"
-#include "load_simulation_cluster.h"
-#include "mixer_cluster.h"
-#include "info_cluster.h"
 #include "application_settings.h"
 #include "transmission.h"
 
@@ -59,8 +49,6 @@ class EngineSimApplication {
         Shaders *getShaders() { return &m_shaders; }
         dbasic::TextRenderer *getTextRenderer() { return &m_textRenderer; }
 
-        void createObjects(Engine *engine);
-        void destroyObjects();
         dbasic::DeltaEngine *getEngine() { return &m_engine; }
 
         float pixelsToUnits(float pixels) const;
@@ -76,16 +64,11 @@ class EngineSimApplication {
         ysVector getOrange() const { return m_orange; }
         ysVector getBlue() const { return m_blue; }
 
-        const SimulationObject::ViewParameters &getViewParameters() const;
-        void setViewLayer(int view) { m_viewParameters.Layer0 = view; }
-
+        
         dbasic::AssetManager *getAssetManager() { return &m_assetManager; }
 
-        int getScreenWidth() const { return m_screenWidth; }
-        int getScreenHeight() const { return m_screenHeight; }
 
         Simulator *getSimulator() { return m_simulator; }
-        InfoCluster *getInfoCluster() { return m_infoCluster; }
         ApplicationSettings* getAppSettings() { return &m_applicationSettings; }
 
     protected:
@@ -106,13 +89,9 @@ class EngineSimApplication {
     protected:
         virtual void initialize();
         virtual void process(float dt);
-        virtual void render();
 
         float m_displayAngle;
         float m_displayHeight;
-        int m_gameWindowHeight;
-        int m_screenWidth;
-        int m_screenHeight;
         
         ApplicationSettings m_applicationSettings;
         dbasic::ShaderSet m_shaderSet;
@@ -134,7 +113,6 @@ class EngineSimApplication {
         GeometryGenerator m_geometryGenerator;
         dbasic::TextRenderer m_textRenderer;
 
-        std::vector<SimulationObject *> m_objects;
         Engine *m_iceEngine;
         Vehicle *m_vehicle;
         Transmission *m_transmission;
@@ -142,31 +120,14 @@ class EngineSimApplication {
         double m_dynoSpeed;
         double m_torque;
 
-        UiManager m_uiManager;
-        EngineView *m_engineView;
-        RightGaugeCluster *m_rightGaugeCluster;
-        OscilloscopeCluster *m_oscCluster;
-        CylinderTemperatureGauge *m_temperatureGauge;
-        PerformanceCluster *m_performanceCluster;
-        LoadSimulationCluster *m_loadSimulationCluster;
-        MixerCluster *m_mixerCluster;
-        InfoCluster *m_infoCluster;
-        SimulationObject::ViewParameters m_viewParameters;
-
         bool m_paused;
 
     protected:
-        void startRecording();
         void updateScreenSizeStability();
-        bool readyToRecord();
-        void stopRecording();
-        void recordFrame();
-        bool isRecording() const { return m_recording; }
 
         static constexpr int ScreenResolutionHistoryLength = 5;
         int m_screenResolution[ScreenResolutionHistoryLength][2];
         int m_screenResolutionIndex;
-        bool m_recording;
 
         ysVector m_background;
         ysVector m_foreground;
@@ -184,9 +145,6 @@ class EngineSimApplication {
         ysAudioBuffer *m_outputAudioBuffer;
         AudioBuffer m_audioBuffer;
         ysAudioSource *m_audioSource;
-
-        int m_oscillatorSampleOffset;
-        int m_screen;
 
         struct LoggingErrorHandler *m_error_handler;
 

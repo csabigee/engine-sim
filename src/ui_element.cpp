@@ -151,9 +151,7 @@ Point UiElement::unitsToPixels(const Point &p) const {
 }
 
 Point UiElement::getRenderPoint(const Point &p) const {
-    const Point offset(
-            -(float)m_app->getScreenWidth() / 2,
-            -(float)m_app->getScreenHeight() / 2);
+    const Point offset(0,0);
     const Point posPixels = localToWorld(p) + offset;
 
     return pixelsToUnits(posPixels);

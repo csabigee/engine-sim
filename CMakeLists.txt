@@ -4,7 +4,7 @@ include(CMakeDependentOption)
 
 option(DTV "Enable video output" OFF)
 option(PIRANHA_ENABLED "Enable scripting input" ON)
-option(DISCORD_ENABLED "Enable Discord Rich Presence" ON)
+option(DISCORD_ENABLED "Enable Discord Rich Presence" OFF)
 
 # Default to compiling as Release in single-configuration generators
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -203,70 +203,21 @@ add_executable(engine-sim-app WIN32
     src/main.cpp
     src/engine_sim_application.cpp
     src/geometry_generator.cpp
-    src/simulation_object.cpp
-    src/piston_object.cpp
-    src/connecting_rod_object.cpp
     src/ui_element.cpp
     src/ui_manager.cpp
-    src/cylinder_pressure_gauge.cpp
     src/ui_math.cpp
-    src/gauge.cpp
-    src/crankshaft_object.cpp
-    src/cylinder_bank_object.cpp
-    src/cylinder_head_object.cpp
-    src/ui_button.cpp
-    src/ui_utilities.cpp
-    src/combustion_chamber_object.cpp
-    src/oscilloscope.cpp
     src/shaders.cpp
-    src/engine_view.cpp
-    src/right_gauge_cluster.cpp
-    src/cylinder_temperature_gauge.cpp
-    src/labeled_gauge.cpp
-    src/throttle_display.cpp
-    src/afr_cluster.cpp
-    src/fuel_cluster.cpp
-    src/oscilloscope_cluster.cpp
-    src/performance_cluster.cpp
-    src/firing_order_display.cpp
-    src/load_simulation_cluster.cpp
-    src/mixer_cluster.cpp
-    src/info_cluster.cpp
 
     # Include files
     include/delta.h
     include/dtv.h
     include/engine_sim_application.h
     include/geometry_generator.h
-    include/simulation_object.h
-    include/piston_object.h
-    include/connecting_rod_object.h
     include/ui_element.h
     include/ui_manager.h
-    include/cylinder_pressure_gauge.h
     include/ui_math.h
     include/units.h
-    include/crankshaft_object.h
-    include/cylinder_bank_object.h
-    include/cylinder_head_object.h
-    include/ui_button.h
-    include/ui_utilities.h
-    include/combustion_chamber_object.h
-    include/oscilloscope.h
     include/shaders.h
-    include/engine_view.h
-    include/right_gauge_cluster.h
-    include/cylinder_temperature_gauge.h
-    include/labeled_gauge.h
-    include/throttle_display.h
-    include/afr_cluster.h
-    include/fuel_cluster.h
-    include/oscilloscope_cluster.h
-    include/performance_cluster.h
-    include/firing_order_display.h
-    include/load_simulation_cluster.h
-    include/mixer_cluster.h
-    include/info_cluster.h
 )
 
 if (DTV)
