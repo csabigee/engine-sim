@@ -365,20 +365,6 @@ void EngineSimApplication::run() {
 
         processEngineInput();
 
-        if (m_engine.ProcessKeyDown(ysKey::Code::Insert) &&
-            m_engine.GetGameWindow()->IsActive()) {
-            if (!isRecording() && readyToRecord()) {
-                startRecording();
-            }
-            else if (isRecording()) {
-                stopRecording();
-            }
-        }
-
-        if (isRecording() && !readyToRecord()) {
-            stopRecording();
-        }
-
         if (!m_paused || m_engine.ProcessKeyDown(ysKey::Code::Right)) {
             process(m_engine.GetFrameLength());
         }
