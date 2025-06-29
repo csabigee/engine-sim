@@ -1,0 +1,408 @@
+import "engine_sim.mr"
+
+units units()
+constants constants()
+impulse_response_library ir_lib()
+
+label cycle(2 * 360 * units.deg)
+label rot((720.0/6.0) * units.deg)
+
+// Porsche GT3 (992) 
+// 4.0 L Flat-6 (N/A) "MA1.76/MDG.G" Engine
+// engine file made by [dacxl]
+    //vehicle and transmission settings available, gt3_vehicle & gt3_transmission
+
+private node wires {
+    output wire1: ignition_wire();
+    output wire2: ignition_wire();
+    output wire3: ignition_wire();
+    output wire4: ignition_wire();
+    output wire5: ignition_wire();
+    output wire6: ignition_wire();
+}
+
+private node gt3_ignition {
+    input wires;
+    input timing_curve;
+    input rev_limit: 9000 * units.rpm;
+    input limiter_duration: 0.038 * units.sec;
+    alias output __out:
+        ignition_module(timing_curve: timing_curve, rev_limit: rev_limit, limiter_duration: limiter_duration)
+            .connect_wire(wires.wire1, 0 * rot)
+            .connect_wire(wires.wire6, 1 * rot)
+	        .connect_wire(wires.wire2, 2 * rot)
+	        .connect_wire(wires.wire4, 3 * rot)
+	        .connect_wire(wires.wire3, 4 * rot)
+	        .connect_wire(wires.wire5, 5 * rot)
+            ;
+
+            //1-6-2-4-3-5
+}
+private node gt3_camshaft_builder {
+    input lobe_profile: gt3_lobe_profile();
+    input intake_lobe_profile: lobe_profile;
+    input exhaust_lobe_profile: lobe_profile;
+    input lobe_separation: 114.0 * units.deg;
+    input intake_lobe_center: lobe_separation;
+    input exhaust_lobe_center: lobe_separation;
+    input advance: 0.0 * units.deg;
+    input base_radius: 0.7 * units.inch;
+
+    output intake_cam_0: _intake_cam_0;
+    output intake_cam_1: _intake_cam_1;
+    output exhaust_cam_0: _exhaust_cam_0;
+    output exhaust_cam_1: _exhaust_cam_1;
+
+    camshaft_parameters params(
+        advance: advance,
+        base_radius: base_radius
+    )
+
+    camshaft _intake_cam_0(params, lobe_profile: intake_lobe_profile)
+    camshaft _intake_cam_1(params, lobe_profile: intake_lobe_profile)
+    camshaft _exhaust_cam_0(params, lobe_profile: exhaust_lobe_profile)
+    camshaft _exhaust_cam_1(params, lobe_profile: exhaust_lobe_profile)
+
+    label rot(2 * (360 / 6.0) * units.deg)
+    label rot360(360 * units.deg)
+
+    _intake_cam_0
+        .add_lobe(rot360 + intake_lobe_center)
+	    .add_lobe(rot360 + intake_lobe_center + 2 * rot)
+	    .add_lobe(rot360 + intake_lobe_center + 4 * rot)
+                                             
+    _intake_cam_1
+	    .add_lobe(rot360 + intake_lobe_center + 3 * rot)
+	    .add_lobe(rot360 + intake_lobe_center + 5 * rot)
+	    .add_lobe(rot360 + intake_lobe_center + 1 * rot)
+                                             
+    _exhaust_cam_0
+        .add_lobe(rot360 - exhaust_lobe_center)
+	    .add_lobe(rot360 - exhaust_lobe_center + 2 * rot)
+	    .add_lobe(rot360 - exhaust_lobe_center + 4 * rot)
+                                             
+    _exhaust_cam_1
+        .add_lobe(rot360 - exhaust_lobe_center + 3 * rot)
+        .add_lobe(rot360 - exhaust_lobe_center + 5 * rot)
+	    .add_lobe(rot360 - exhaust_lobe_center + 1 * rot)
+}
+
+public node gt3 {
+    alias output __out: engine;
+
+    wires wires()
+
+    engine engine(
+        name: "Porsche 911 GT3 (992)",
+        starter_torque: 200 * units.lb_ft,
+		starter_speed: 1200 * units.rpm,
+        redline: 9050 * units.rpm,
+        fuel: fuel(
+            max_turbulence_effect: 0.0,
+            burning_efficiency_randomness: 0.0,
+            max_burning_efficiency: 1.5)
+    )
+
+
+    crankshaft c0(
+        throw: 81.5 * 0.5 * units.mm,
+        flywheel_mass: 3 * units.kg,
+        mass: 9.5 * units.kg,
+        friction_torque: 2.0 * units.lb_ft,
+        moment_of_inertia: 0.22986844776863666 * 0.9,
+        position_x: 0.0,
+        position_y: 0.0,
+        tdc: 0 * units.deg
+    )
+	
+label rot(120.0 * units.deg)
+
+    //1-6-2-4-3-5
+
+    rod_journal rj0(angle: 180.0 * units.deg)
+    rod_journal rj1(angle: 0 * rot)
+    rod_journal rj2(angle: 90 * units.deg)
+    rod_journal rj3(angle: 240 * units.deg)
+    rod_journal rj4(angle: 270 * units.deg)
+    rod_journal rj5(angle: 1 * rot)
+
+
+    
+    c0
+        .add_rod_journal(rj0)
+        .add_rod_journal(rj1)
+        .add_rod_journal(rj2)
+        .add_rod_journal(rj3)
+        .add_rod_journal(rj4)
+        .add_rod_journal(rj5)
+
+
+
+
+    piston_parameters piston_params(
+        mass: 407 * units.g,
+        //blowby: k_28inH2O(0.1),
+        compression_height: 34 * units.mm,
+        wrist_pin_position: 0.0,
+        displacement: 0.0
+    )
+
+    connecting_rod_parameters cr_params(
+        mass: 304.0 * units.g,
+        moment_of_inertia: 0.0015884918028487504,
+        center_of_mass: 0.0,
+        length: 135.0 * units.mm
+    )
+
+    cylinder_bank_parameters bank_params(
+        bore: 102 * units.mm,
+        deck_height: 220 * units.mm
+    )
+
+    intake intake(
+        plenum_volume: 40.0 * units.L,
+        plenum_cross_section_area: 10.0 * units.cm2,
+        intake_flow_rate: k_carb(8500.0),
+        idle_flow_rate: k_carb(0.0),
+        idle_throttle_plate_position: 0.99977,
+        throttle_gamma: 1.0
+	)
+
+	exhaust_system_parameters es_params(
+        outlet_flow_rate: k_carb(2500.0),
+        primary_tube_length: 25 * units.inch,
+        primary_flow_rate: k_carb(1800.0),
+        velocity_decay: 0.5,
+        volume: 15* units.L
+    )
+    
+    exhaust_system_parameters es_params2(
+        outlet_flow_rate: k_carb(2500.0),
+        primary_tube_length: 25 * units.inch,
+        primary_flow_rate: k_carb(1800.0),
+        velocity_decay: 0.5,
+        volume: 15 * units.L
+    )
+
+    exhaust_system exhaust0(es_params, audio_volume: 1.0, impulse_response: ir_lib.default_0)
+    exhaust_system exhaust1(es_params2, audio_volume: 0.1, impulse_response: ir_lib.default_0)
+
+    cylinder_bank b0(bank_params, angle: 90 * units.deg)
+    b0
+        .add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj0,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire1
+        )
+		.add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj2,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire2
+        )
+		.add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj4,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire3
+        )
+
+    cylinder_bank b1(bank_params, angle: -90 * units.deg)
+    b1
+        .add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj1,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire4
+        )
+		.add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj3,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire5
+        )
+		.add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj5,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire6
+        )
+
+    engine
+        .add_cylinder_bank(b0)
+        .add_cylinder_bank(b1)
+
+    engine.add_crankshaft(c0)
+
+	gt3_camshaft_builder camshaft()
+
+    b0.set_cylinder_head (
+        gt3_head(
+            intake_camshaft: camshaft.intake_cam_0,
+            exhaust_camshaft: camshaft.exhaust_cam_0
+        )
+    )
+    b1.set_cylinder_head (
+        gt3_head(
+            intake_camshaft: camshaft.intake_cam_1,
+            exhaust_camshaft: camshaft.exhaust_cam_1,
+            flip_display: true
+        )
+    )
+
+
+    function timing_curve(1000 * units.rpm)
+    timing_curve
+        .add_sample(0000 * units.rpm, 10 * units.deg)
+        .add_sample(1000 * units.rpm, 14 * units.deg)
+        .add_sample(2000 * units.rpm, 14 * units.deg)
+        .add_sample(3000 * units.rpm, 20 * units.deg)
+        .add_sample(4000 * units.rpm, 20 * units.deg)
+        .add_sample(5000 * units.rpm, 20 * units.deg)
+        .add_sample(6000 * units.rpm, 30 * units.deg)
+		.add_sample(7000 * units.rpm, 35 * units.deg)
+		.add_sample(8000 * units.rpm, 45 * units.deg)
+        .add_sample(8400 * units.rpm, 45 * units.deg)
+        .add_sample(9000 * units.rpm, 50 * units.deg)
+
+				
+
+    engine.add_ignition_module(
+        gt3_ignition(
+            wires: wires,
+            timing_curve: timing_curve,
+            rev_limit: 9050 * units.rpm,
+            limiter_duration: 0.05
+        )
+	)
+}
+
+private node add_sym_sample {
+    input angle;
+    input lift;
+    input this;
+    alias output __out: this;
+
+    this.add_sample(angle * units.deg, lift * units.thou)
+    this.add_sample(-angle * units.deg, lift * units.thou)
+}
+
+private node add_flow_sample {
+    input lift;
+    input flow;
+    input this;
+    alias output __out: this;
+
+    this.add_sample(lift * units.thou, k_28inH2O(flow))
+}
+
+private node gt3_head {
+    input intake_camshaft;
+    input exhaust_camshaft;
+    input flow_attenuation: 1.0;
+    input lift_scale: 0.85;
+    input chamber_volume: 66.8 * units.cc;
+    input flip_display: false;
+    alias output __out: head;
+
+    function intake_flow(50 * units.thou)
+    intake_flow
+        .add_flow_sample(0, 0)
+        .add_flow_sample(50 * lift_scale, 25 * flow_attenuation)
+        .add_flow_sample(100 * lift_scale, 75 * flow_attenuation)
+        .add_flow_sample(150 * lift_scale, 100 * flow_attenuation)
+        .add_flow_sample(200 * lift_scale, 130 * flow_attenuation)
+        .add_flow_sample(250 * lift_scale, 180 * flow_attenuation)
+        .add_flow_sample(300 * lift_scale, 190 * flow_attenuation)
+        .add_flow_sample(350 * lift_scale, 220 * flow_attenuation)
+        .add_flow_sample(400 * lift_scale, 230 * flow_attenuation)
+        .add_flow_sample(450 * lift_scale, 240 * flow_attenuation)
+        .add_flow_sample(500 * lift_scale, 240 * flow_attenuation)
+        .add_flow_sample(550 * lift_scale, 240 * flow_attenuation)
+        .add_flow_sample(600 * lift_scale, 220 * flow_attenuation)
+        .add_flow_sample(650 * lift_scale, 215 * flow_attenuation)
+        .add_flow_sample(700 * lift_scale, 210 * flow_attenuation)
+        .add_flow_sample(750 * lift_scale, 210 * flow_attenuation)
+        .add_flow_sample(800 * lift_scale, 205 * flow_attenuation)
+        .add_flow_sample(850 * lift_scale, 200 * flow_attenuation)
+        .add_flow_sample(900 * lift_scale, 200 * flow_attenuation)
+
+    function exhaust_flow(50 * units.thou)
+    exhaust_flow
+        .add_flow_sample(0, 0)
+        .add_flow_sample(50 * lift_scale, 25 * flow_attenuation)
+        .add_flow_sample(100 * lift_scale, 50 * flow_attenuation)
+        .add_flow_sample(150 * lift_scale, 75 * flow_attenuation)
+        .add_flow_sample(200 * lift_scale, 100 * flow_attenuation)
+        .add_flow_sample(250 * lift_scale, 125 * flow_attenuation)
+        .add_flow_sample(300 * lift_scale, 160 * flow_attenuation)
+        .add_flow_sample(350 * lift_scale, 175 * flow_attenuation)
+        .add_flow_sample(400 * lift_scale, 180 * flow_attenuation)
+        .add_flow_sample(450 * lift_scale, 190 * flow_attenuation)
+        .add_flow_sample(500 * lift_scale, 200 * flow_attenuation)
+        .add_flow_sample(550 * lift_scale, 205 * flow_attenuation)
+        .add_flow_sample(600 * lift_scale, 210 * flow_attenuation)
+        .add_flow_sample(650 * lift_scale, 215 * flow_attenuation)
+        .add_flow_sample(700 * lift_scale, 215 * flow_attenuation)
+        .add_flow_sample(750 * lift_scale, 210 * flow_attenuation)
+        .add_flow_sample(800 * lift_scale, 205 * flow_attenuation)
+        .add_flow_sample(850 * lift_scale, 205 * flow_attenuation)
+        .add_flow_sample(900 * lift_scale, 205 * flow_attenuation)
+
+    cylinder_head head(
+        chamber_volume: chamber_volume,
+        intake_runner_volume: 80.0 * units.cc,
+        intake_runner_cross_section_area: 12.4087 * units.cm2,
+
+        intake_port_flow: intake_flow,
+        exhaust_port_flow: exhaust_flow,
+        intake_camshaft: intake_camshaft,
+        exhaust_camshaft: exhaust_camshaft,
+        flip_display: flip_display
+    )
+}
+
+private node gt3_lobe_profile {
+    alias output __out:
+        harmonic_cam_lobe(
+            duration_at_50_thou: 245 * units.deg,
+            gamma: 0.8,
+            lift: 12 * units.mm,
+            steps: 100
+        );
+}
+
+public node gt3_vehicle {
+	alias output __out: vehicle;
+	vehicle vehicle(
+		mass: 1510 * units.kg,
+		drag_coefficient: 0.034,
+		diff_ratio: 3.97,
+		tire_radius: 361.2 * units.mm
+		)
+}
+
+public node gt3_transmission {
+    alias output __out:
+        transmission()
+            .add_gear(3.75)
+            .add_gear(2.38)
+            .add_gear(1.72)
+            .add_gear(1.34)
+            .add_gear(1.11)
+            .add_gear(0.96)
+            .add_gear(0.84);
+}
