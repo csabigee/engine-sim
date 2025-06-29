@@ -710,7 +710,7 @@ void EngineSimApplication::processEngineInput() {
     }
 
     if (prevTargetThrottle != m_targetSpeedSetting) {
-        m_infoCluster->setLogMessage("Speed control set to " + std::to_string(m_targetSpeedSetting));
+        std::cout << "Speed control set to " + std::to_string(m_targetSpeedSetting) << std::endl;
     }
 
     m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
@@ -787,7 +787,7 @@ void EngineSimApplication::processEngineInput() {
     }
     else if (m_engine.IsKeyDown(ysKey::Code::Shift)) {
         m_targetClutchPressure = 0.0;
-        m_infoCluster->setLogMessage("CLUTCH DEPRESSED");
+        std::cout << "CLUTCH DEPRESSED" << std::endl;
     }
     else if (!m_engine.IsKeyDown(ysKey::Code::Y)) {
         m_targetClutchPressure = 1.0;
