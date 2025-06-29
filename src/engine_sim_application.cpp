@@ -264,6 +264,7 @@ void EngineSimApplication::process(float frame_dt) {
     m_simulator->endFrame();
 
     auto duration = proc_t1 - proc_t0;
+    std::cout << "duration: " << duration << std::endl;
 
 
     const SampleOffset safeWritePosition = m_audioSource->GetCurrentWritePosition();
@@ -315,10 +316,12 @@ void EngineSimApplication::process(float frame_dt) {
         m_audioBuffer.commitBlock(readSamples);
     }
 
-//    m_performanceCluster->addInputBufferUsageSample(
-//        (double)m_simulator->getSynthesizerInputLatency() / m_simulator->getSynthesizerInputLatencyTarget());
-//    m_performanceCluster->addAudioLatencySample(
-//        m_audioBuffer.offsetDelta(m_audioSource->GetCurrentWritePosition(), m_audioBuffer.m_writePointer) / (44100 * 0.1));
+double d_latency = (double)m_simulator->getSynthesizerInputLatency() / m_simulator->getSynthesizerInputLatencyTarget();
+std::cout << "latency: " << d_latency << std::endl;
+
+double d_aud_latency_sample = m_audioBuffer.offsetDelta(m_audioSource->GetCurrentWritePosition(), m_audioBuffer.m_writePointer) / (44100 * 0.1);
+std::cout << "audio latency sample: " << d_aud_latency_sample << std::endl;
+
 }
 
 
