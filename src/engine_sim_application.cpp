@@ -1,14 +1,7 @@
 #include "../include/engine_sim_application.h"
 
-#include "../include/piston_object.h"
-#include "../include/connecting_rod_object.h"
 #include "../include/constants.h"
 #include "../include/units.h"
-#include "../include/crankshaft_object.h"
-#include "../include/cylinder_bank_object.h"
-#include "../include/cylinder_head_object.h"
-#include "../include/ui_button.h"
-#include "../include/combustion_chamber_object.h"
 #include "../include/csv_io.h"
 #include "../include/exhaust_system.h"
 #include "../include/feedback_comb_filter.h"
@@ -23,6 +16,7 @@
 #include <chrono>
 #include <stdlib.h>
 #include <sstream>
+#include <iostream>
 
 #if ATG_ENGINE_SIM_DISCORD_ENABLED
 #include "../include/discord.h"
@@ -43,7 +37,6 @@ EngineSimApplication::EngineSimApplication() {
     m_geometryIndexBuffer = nullptr;
 
     m_paused = false;
-    m_recording = false;
     m_screenResolutionIndex = 0;
     for (int i = 0; i < ScreenResolutionHistoryLength; ++i) {
         m_screenResolution[i][0] = m_screenResolution[i][1] = 0;
@@ -69,27 +62,11 @@ EngineSimApplication::EngineSimApplication() {
     m_dynoSpeed = 0;
 
     m_simulator = nullptr;
-    m_engineView = nullptr;
-    m_rightGaugeCluster = nullptr;
-    m_temperatureGauge = nullptr;
-    m_oscCluster = nullptr;
-    m_performanceCluster = nullptr;
-    m_loadSimulationCluster = nullptr;
-    m_mixerCluster = nullptr;
-    m_infoCluster = nullptr;
     m_iceEngine = nullptr;
     m_mainRenderTarget = nullptr;
 
     m_vehicle = nullptr;
     m_transmission = nullptr;
-
-    m_oscillatorSampleOffset = 0;
-    m_gameWindowHeight = 256;
-    m_screenWidth = 256;
-    m_screenHeight = 256;
-    m_screen = 0;
-    m_viewParameters.Layer0 = 0;
-    m_viewParameters.Layer1 = 0;
 
     m_displayAngle = 0.0f;
 
@@ -161,8 +138,8 @@ void EngineSimApplication::initialize(void *instance, ysContextObject::DeviceAPI
     settings.WindowPositionX = 0;
     settings.WindowPositionY = 0;
     settings.WindowStyle = ysWindow::WindowStyle::Windowed;
-    settings.WindowWidth = 1920;
-    settings.WindowHeight = 1080;
+    settings.WindowWidth = 640;
+    settings.WindowHeight = 480;
 
     m_engine.CreateGameWindow(settings);
 
@@ -280,7 +257,6 @@ void EngineSimApplication::process(float frame_dt) {
     auto proc_t0 = std::chrono::steady_clock::now();
     const int iterationCount = m_simulator->getFrameIterationCount();
     while (m_simulator->simulateStep()) {
-        m_oscCluster->sample();
     }
 
     auto proc_t1 = std::chrono::steady_clock::now();
@@ -288,10 +264,7 @@ void EngineSimApplication::process(float frame_dt) {
     m_simulator->endFrame();
 
     auto duration = proc_t1 - proc_t0;
-    if (iterationCount > 0) {
-        m_performanceCluster->addTimePerTimestepSample(
-            (duration.count() / 1E9) / iterationCount);
-    }
+
 
     const SampleOffset safeWritePosition = m_audioSource->GetCurrentWritePosition();
     const SampleOffset writePosition = m_audioBuffer.m_writePointer;
@@ -318,15 +291,9 @@ void EngineSimApplication::process(float frame_dt) {
 
     for (SampleOffset i = 0; i < (SampleOffset)readSamples && i < maxWrite; ++i) {
         const int16_t sample = samples[i];
-        if (m_oscillatorSampleOffset % 4 == 0) {
-            m_oscCluster->getAudioWaveformOscilloscope()->addDataPoint(
-                m_oscillatorSampleOffset,
-                sample / (float)(INT16_MAX));
-        }
 
         m_audioBuffer.writeSample(sample, m_audioBuffer.m_writePointer, (int)i);
 
-        m_oscillatorSampleOffset = (m_oscillatorSampleOffset + 1) % (44100 / 10);
     }
 
     delete[] samples;
@@ -348,42 +315,20 @@ void EngineSimApplication::process(float frame_dt) {
         m_audioBuffer.commitBlock(readSamples);
     }
 
-    m_performanceCluster->addInputBufferUsageSample(
-        (double)m_simulator->getSynthesizerInputLatency() / m_simulator->getSynthesizerInputLatencyTarget());
-    m_performanceCluster->addAudioLatencySample(
-        m_audioBuffer.offsetDelta(m_audioSource->GetCurrentWritePosition(), m_audioBuffer.m_writePointer) / (44100 * 0.1));
+//    m_performanceCluster->addInputBufferUsageSample(
+//        (double)m_simulator->getSynthesizerInputLatency() / m_simulator->getSynthesizerInputLatencyTarget());
+//    m_performanceCluster->addAudioLatencySample(
+//        m_audioBuffer.offsetDelta(m_audioSource->GetCurrentWritePosition(), m_audioBuffer.m_writePointer) / (44100 * 0.1));
 }
 
-void EngineSimApplication::render() {
-    for (SimulationObject *object : m_objects) {
-        object->generateGeometry();
-    }
-
-    m_viewParameters.Sublayer = 0;
-    for (SimulationObject *object : m_objects) {
-        object->render(&getViewParameters());
-    }
-
-    m_viewParameters.Sublayer = 1;
-    for (SimulationObject *object : m_objects) {
-        object->render(&getViewParameters());
-    }
-
-    m_viewParameters.Sublayer = 2;
-    for (SimulationObject *object : m_objects) {
-        object->render(&getViewParameters());
-    }
-
-    m_uiManager.render();
-}
 
 float EngineSimApplication::pixelsToUnits(float pixels) const {
-    const float f = m_displayHeight / m_engineView->m_bounds.height();
+    const float f = m_displayHeight / 100;
     return pixels * f;
 }
 
 float EngineSimApplication::unitsToPixels(float units) const {
-    const float f = m_engineView->m_bounds.height() / m_displayHeight;
+    const float f = 100 / m_displayHeight;
     return units * f;
 }
 
@@ -404,25 +349,17 @@ void EngineSimApplication::run() {
             }
         }
 
-        if (m_engine.ProcessKeyDown(ysKey::Code::Tab)) {
-            m_screen++;
-            if (m_screen > 2) m_screen = 0;
-        }
 
         if (m_engine.ProcessKeyDown(ysKey::Code::F)) {
             if (m_engine.GetGameWindow()->GetWindowStyle() != ysWindow::WindowStyle::Fullscreen) {
                 m_engine.GetGameWindow()->SetWindowStyle(ysWindow::WindowStyle::Fullscreen);
-                m_infoCluster->setLogMessage("Entered fullscreen mode");
+                std::cout << "Entered fullscreen mode" << std::endl;
             }
             else {
                 m_engine.GetGameWindow()->SetWindowStyle(ysWindow::WindowStyle::Windowed);
-                m_infoCluster->setLogMessage("Exited fullscreen mode");
+                std::cout << "Exited fullscreen mode" << std::endl;
             }
         }
-
-        m_gameWindowHeight = m_engine.GetGameWindow()->GetGameHeight();
-        m_screenHeight = m_engine.GetGameWindow()->GetScreenHeight();
-        m_screenWidth = m_engine.GetGameWindow()->GetScreenWidth();
 
         updateScreenSizeStability();
 
@@ -446,19 +383,10 @@ void EngineSimApplication::run() {
             process(m_engine.GetFrameLength());
         }
 
-        m_uiManager.update(m_engine.GetFrameLength());
-
         renderScene();
 
         m_engine.EndFrame();
 
-        if (isRecording()) {
-            recordFrame();
-        }
-    }
-
-    if (isRecording()) {
-        stopRecording();
     }
 
     m_simulator->endAudioRenderingThread();
@@ -484,7 +412,6 @@ void EngineSimApplication::loadEngine(
     Vehicle *vehicle,
     Transmission *transmission)
 {
-    destroyObjects();
 
     if (m_simulator != nullptr) {
         m_simulator->releaseSimulation();
@@ -514,14 +441,10 @@ void EngineSimApplication::loadEngine(
 
     if (engine == nullptr || vehicle == nullptr || transmission == nullptr) {
         m_iceEngine = nullptr;
-        m_viewParameters.Layer1 = 0;
 
         return;
     }
 
-    createObjects(engine);
-
-    m_viewParameters.Layer1 = engine->getMaxDepth();
     engine->calculateDisplacement();
 
     m_simulator->setSimulationFrequency(engine->getSimulationFrequency());
@@ -605,61 +528,6 @@ void EngineSimApplication::configure(const ApplicationSettings &settings) {
     m_green = ysColor::srgbiToLinear(m_applicationSettings.colorGreen);
 }
 
-void EngineSimApplication::createObjects(Engine *engine) {
-    for (int i = 0; i < engine->getCylinderCount(); ++i) {
-        ConnectingRodObject *rodObject = new ConnectingRodObject;
-        rodObject->initialize(this);
-        rodObject->m_connectingRod = engine->getConnectingRod(i);
-        m_objects.push_back(rodObject);
-
-        PistonObject *pistonObject = new PistonObject;
-        pistonObject->initialize(this);
-        pistonObject->m_piston = engine->getPiston(i);
-        m_objects.push_back(pistonObject);
-
-        CombustionChamberObject *ccObject = new CombustionChamberObject;
-        ccObject->initialize(this);
-        ccObject->m_chamber = engine->getChamber(i);
-        m_objects.push_back(ccObject);
-    }
-
-    for (int i = 0; i < engine->getCrankshaftCount(); ++i) {
-        CrankshaftObject *crankshaftObject = new CrankshaftObject;
-        crankshaftObject->initialize(this);
-        crankshaftObject->m_crankshaft = engine->getCrankshaft(i);
-        m_objects.push_back(crankshaftObject);
-    }
-
-    for (int i = 0; i < engine->getCylinderBankCount(); ++i) {
-        CylinderBankObject *cbObject = new CylinderBankObject;
-        cbObject->initialize(this);
-        cbObject->m_bank = engine->getCylinderBank(i);
-        cbObject->m_head = engine->getHead(i);
-        m_objects.push_back(cbObject);
-
-        CylinderHeadObject *chObject = new CylinderHeadObject;
-        chObject->initialize(this);
-        chObject->m_head = engine->getHead(i);
-        chObject->m_engine = engine;
-        m_objects.push_back(chObject);
-    }
-}
-
-void EngineSimApplication::destroyObjects() {
-    for (SimulationObject *object : m_objects) {
-        object->destroy();
-        delete object;
-    }
-
-    m_objects.clear();
-}
-
-const SimulationObject::ViewParameters &
-    EngineSimApplication::getViewParameters() const
-{
-    return m_viewParameters;
-}
-
 void EngineSimApplication::loadScript() {
     Engine *engine = nullptr;
     Vehicle *vehicle = nullptr;
@@ -729,7 +597,6 @@ void EngineSimApplication::loadScript() {
     }
 
     loadEngine(engine, vehicle, transmission);
-    refreshUserInterface();
 }
 
 void EngineSimApplication::processEngineInput() {
@@ -756,7 +623,7 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->synthesizer().setAudioParameters(audioParams);
         fineControlInUse = true;
 
-        m_infoCluster->setLogMessage("[Z] - Set volume to " + std::to_string(audioParams.volume));
+        std::cout << "[Z] - Set volume to " + std::to_string(audioParams.volume) << std::endl;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::X)) {
         const double rate = fineControlMode
@@ -769,7 +636,7 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->synthesizer().setAudioParameters(audioParams);
         fineControlInUse = true;
 
-        m_infoCluster->setLogMessage("[X] - Set convolution level to " + std::to_string(audioParams.convolution));
+        std::cout << "[X] - Set convolution level to " + std::to_string(audioParams.convolution) << std::endl;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::C)) {
         const double rate = fineControlMode
@@ -782,7 +649,7 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->synthesizer().setAudioParameters(audioParams);
         fineControlInUse = true;
 
-        m_infoCluster->setLogMessage("[C] - Set high freq. gain to " + std::to_string(audioParams.dF_F_mix));
+        std::cout << "[C] - Set high freq. gain to " + std::to_string(audioParams.dF_F_mix) << std::endl;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::V)) {
         const double rate = fineControlMode
@@ -795,7 +662,7 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->synthesizer().setAudioParameters(audioParams);
         fineControlInUse = true;
 
-        m_infoCluster->setLogMessage("[V] - Set low freq. noise to " + std::to_string(audioParams.airNoise));
+        std::cout << "[V] - Set low freq. noise to " + std::to_string(audioParams.airNoise) << std::endl;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::B)) {
         const double rate = fineControlMode
@@ -808,7 +675,7 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->synthesizer().setAudioParameters(audioParams);
         fineControlInUse = true;
 
-        m_infoCluster->setLogMessage("[B] - Set high freq. noise to " + std::to_string(audioParams.inputSampleNoise));
+        std::cout << "[B] - Set high freq. noise to " + std::to_string(audioParams.inputSampleNoise) << std::endl;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::N)) {
         const double rate = fineControlMode
@@ -822,7 +689,7 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->setSimulationFrequency(newSimulationFrequency);
         fineControlInUse = true;
 
-        m_infoCluster->setLogMessage("[N] - Set simulation freq to " + std::to_string(m_simulator->getSimulationFrequency()));
+        std::cout << "[N] - Set simulation freq to " + std::to_string(m_simulator->getSimulationFrequency()) << std::endl;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::G) && m_simulator->m_dyno.m_hold) {
         if (mouseWheelDelta > 0) {
@@ -834,7 +701,7 @@ void EngineSimApplication::processEngineInput() {
 
         m_dynoSpeed = clamp(m_dynoSpeed, m_iceEngine->getDynoMinSpeed(), m_iceEngine->getDynoMaxSpeed());
 
-        m_infoCluster->setLogMessage("[G] - Set dyno speed to " + std::to_string(units::toRpm(m_dynoSpeed)));
+        std::cout << "[G] - Set dyno speed to " + std::to_string(units::toRpm(m_dynoSpeed)) << std::endl;
         fineControlInUse = true;
     }
 
@@ -863,39 +730,7 @@ void EngineSimApplication::processEngineInput() {
     m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
 
     m_iceEngine->setSpeedControl(m_speedSetting);
-    if (m_engine.ProcessKeyDown(ysKey::Code::M)) {
-        const int currentLayer = getViewParameters().Layer0;
-        if (currentLayer + 1 < m_iceEngine->getMaxDepth()) {
-            setViewLayer(currentLayer + 1);
-        }
-
-        m_infoCluster->setLogMessage("[M] - Set render layer to " + std::to_string(getViewParameters().Layer0));
-    }
-
-    if (m_engine.ProcessKeyDown(ysKey::Code::OEM_Comma)) {
-        if (getViewParameters().Layer0 - 1 >= 0)
-            setViewLayer(getViewParameters().Layer0 - 1);
-
-        m_infoCluster->setLogMessage("[,] - Set render layer to " + std::to_string(getViewParameters().Layer0));
-    }
-
-    if (m_engine.ProcessKeyDown(ysKey::Code::D)) {
-        m_simulator->m_dyno.m_enabled = !m_simulator->m_dyno.m_enabled;
-
-        const std::string msg = m_simulator->m_dyno.m_enabled
-            ? "DYNOMOMETER ENABLED"
-            : "DYNOMOMETER DISABLED";
-        m_infoCluster->setLogMessage(msg);
-    }
-
-    if (m_engine.ProcessKeyDown(ysKey::Code::H)) {
-        m_simulator->m_dyno.m_hold = !m_simulator->m_dyno.m_hold;
-
-        const std::string msg = m_simulator->m_dyno.m_hold
-            ? m_simulator->m_dyno.m_enabled ? "HOLD ENABLED" : "HOLD ON STANDBY [ENABLE DYNO. FOR HOLD]"
-            : "HOLD DISABLED";
-        m_infoCluster->setLogMessage(msg);
-    }
+    
 
     if (m_simulator->m_dyno.m_enabled) {
         if (!m_simulator->m_dyno.m_hold) {
@@ -929,12 +764,6 @@ void EngineSimApplication::processEngineInput() {
         m_simulator->m_starterMotor.m_enabled = false;
     }
 
-    if (prevStarterEnabled != m_simulator->m_starterMotor.m_enabled) {
-        const std::string msg = m_simulator->m_starterMotor.m_enabled
-            ? "STARTER ENABLED"
-            : "STARTER DISABLED";
-        m_infoCluster->setLogMessage(msg);
-    }
 
     if (m_engine.ProcessKeyDown(ysKey::Code::A)) {
         m_simulator->getEngine()->getIgnitionModule()->m_enabled =
@@ -943,24 +772,24 @@ void EngineSimApplication::processEngineInput() {
         const std::string msg = m_simulator->getEngine()->getIgnitionModule()->m_enabled
             ? "IGNITION ENABLED"
             : "IGNITION DISABLED";
-        m_infoCluster->setLogMessage(msg);
+        std::cout << msg << std::endl;
     }
 
     if (m_engine.ProcessKeyDown(ysKey::Code::Up)) {
         m_simulator->getTransmission()->changeGear(m_simulator->getTransmission()->getGear() + 1);
 
-        m_infoCluster->setLogMessage(
-            "UPSHIFTED TO " + std::to_string(m_simulator->getTransmission()->getGear() + 1));
+        std::cout << "UPSHIFTED TO " + std::to_string(m_simulator->getTransmission()->getGear() + 1) << std::endl;
+
     }
     else if (m_engine.ProcessKeyDown(ysKey::Code::Down)) {
         m_simulator->getTransmission()->changeGear(m_simulator->getTransmission()->getGear() - 1);
 
         if (m_simulator->getTransmission()->getGear() != -1) {
-            m_infoCluster->setLogMessage(
-                "DOWNSHIFTED TO " + std::to_string(m_simulator->getTransmission()->getGear() + 1));
+            std::cout << "DOWNSHIFTED TO " + std::to_string(m_simulator->getTransmission()->getGear() + 1) << std::endl;
+
         }
         else {
-            m_infoCluster->setLogMessage("SHIFTED TO NEUTRAL");
+            std::cout << "SHIFTED TO NEUTRAL" << std::endl;
         }
     }
 
@@ -995,111 +824,26 @@ void EngineSimApplication::renderScene() {
     getShaders()->SetObjectTransform(ysMath::LoadIdentity());
 
     m_textRenderer.SetColor(ysColor::linearToSrgb(m_foreground));
-    m_shaders.SetClearColor(ysColor::linearToSrgb(m_shadow));
 
     const int screenWidth = m_engine.GetGameWindow()->GetGameWidth();
     const int screenHeight = m_engine.GetGameWindow()->GetGameHeight();
     const float aspectRatio = screenWidth / (float)screenHeight;
 
-    const Point cameraPos = m_engineView->getCameraPosition();
-    m_shaders.m_cameraPosition = ysMath::LoadVector(cameraPos.x, cameraPos.y);
+    Bounds windowBounds((float)screenWidth, (float)screenHeight, { 0, (float)screenHeight });
+    Grid grid;
+    grid.v_cells = 2;
+    grid.h_cells = 3;
+    Grid grid3x3;
+    grid3x3.v_cells = 3;
+    grid3x3.h_cells = 3;
 
-    m_shaders.CalculateUiCamera(screenWidth, screenHeight);
 
-    if (m_screen == 0) {
-        Bounds windowBounds((float)screenWidth, (float)screenHeight, { 0, (float)screenHeight });
-        Grid grid;
-        grid.v_cells = 2;
-        grid.h_cells = 3;
-        Grid grid3x3;
-        grid3x3.v_cells = 3;
-        grid3x3.h_cells = 3;
-        m_engineView->setDrawFrame(true);
-        m_engineView->setBounds(grid.get(windowBounds, 1, 0, 1, 1));
-        m_engineView->setLocalPosition({ 0, 0 });
-
-        m_rightGaugeCluster->m_bounds = grid.get(windowBounds, 2, 0, 1, 2);
-        m_oscCluster->m_bounds = grid.get(windowBounds, 1, 1);
-        m_performanceCluster->m_bounds = grid3x3.get(windowBounds, 0, 1);
-        m_loadSimulationCluster->m_bounds = grid3x3.get(windowBounds, 0, 2);
-
-        Grid grid1x3;
-        grid1x3.v_cells = 3;
-        grid1x3.h_cells = 1;
-        m_mixerCluster->m_bounds = grid1x3.get(grid3x3.get(windowBounds, 0, 0), 0, 2);
-        m_infoCluster->m_bounds = grid1x3.get(grid3x3.get(windowBounds, 0, 0), 0, 0, 1, 2);
-
-        m_engineView->setVisible(true);
-        m_rightGaugeCluster->setVisible(true);
-        m_oscCluster->setVisible(true);
-        m_performanceCluster->setVisible(true);
-        m_loadSimulationCluster->setVisible(true);
-        m_mixerCluster->setVisible(true);
-        m_infoCluster->setVisible(true);
-
-        m_oscCluster->activate();
-    }
-    else if (m_screen == 1) {
-        Bounds windowBounds((float)screenWidth, (float)screenHeight, { 0, (float)screenHeight });
-        m_engineView->setDrawFrame(false);
-        m_engineView->setBounds(windowBounds);
-        m_engineView->setLocalPosition({ 0, 0 });
-        m_engineView->activate();
-
-        m_engineView->setVisible(true);
-        m_rightGaugeCluster->setVisible(false);
-        m_oscCluster->setVisible(false);
-        m_performanceCluster->setVisible(false);
-        m_loadSimulationCluster->setVisible(false);
-        m_mixerCluster->setVisible(false);
-        m_infoCluster->setVisible(false);
-    }
-    else if (m_screen == 2) {
-        Bounds windowBounds((float)screenWidth, (float)screenHeight, { 0, (float)screenHeight });
-        Grid grid;
-        grid.v_cells = 1;
-        grid.h_cells = 3;
-        m_engineView->setDrawFrame(true);
-        m_engineView->setBounds(grid.get(windowBounds, 0, 0, 2, 1));
-        m_engineView->setLocalPosition({ 0, 0 });
-        m_engineView->activate();
-
-        m_rightGaugeCluster->m_bounds = grid.get(windowBounds, 2, 0, 1, 1);
-
-        m_engineView->setVisible(true);
-        m_rightGaugeCluster->setVisible(true);
-        m_oscCluster->setVisible(false);
-        m_performanceCluster->setVisible(false);
-        m_loadSimulationCluster->setVisible(false);
-        m_mixerCluster->setVisible(false);
-        m_infoCluster->setVisible(false);
-    }
-
-    const float cameraAspectRatio =
-        m_engineView->m_bounds.width() / m_engineView->m_bounds.height();
-    m_engine.GetDevice()->ResizeRenderTarget(
-        m_mainRenderTarget,
-        m_engineView->m_bounds.width(),
-        m_engineView->m_bounds.height(),
-        m_engineView->m_bounds.width(),
-        m_engineView->m_bounds.height()
-    );
-    m_engine.GetDevice()->RepositionRenderTarget(
-        m_mainRenderTarget,
-        m_engineView->m_bounds.getPosition(Bounds::tl).x,
-        screenHeight - m_engineView->m_bounds.getPosition(Bounds::tl).y
-    );
-    m_shaders.CalculateCamera(
-        cameraAspectRatio * m_displayHeight / m_engineView->m_zoom,
-        m_displayHeight / m_engineView->m_zoom,
-        m_engineView->m_bounds,
-        m_screenWidth,
-        m_screenHeight,
-        m_displayAngle);
+    Grid grid1x3;
+    grid1x3.v_cells = 3;
+    grid1x3.h_cells = 1;
 
     m_geometryGenerator.reset();
 
-    render();
 
     m_engine.GetDevice()->EditBufferDataRange(
         m_geometryVertexBuffer,
@@ -1114,88 +858,9 @@ void EngineSimApplication::renderScene() {
         0);
 }
 
-void EngineSimApplication::refreshUserInterface() {
-    m_uiManager.destroy();
-    m_uiManager.initialize(this);
-
-    m_engineView = m_uiManager.getRoot()->addElement<EngineView>();
-    m_rightGaugeCluster = m_uiManager.getRoot()->addElement<RightGaugeCluster>();
-    m_oscCluster = m_uiManager.getRoot()->addElement<OscilloscopeCluster>();
-    m_performanceCluster = m_uiManager.getRoot()->addElement<PerformanceCluster>();
-    m_loadSimulationCluster = m_uiManager.getRoot()->addElement<LoadSimulationCluster>();
-    m_mixerCluster = m_uiManager.getRoot()->addElement<MixerCluster>();
-    m_infoCluster = m_uiManager.getRoot()->addElement<InfoCluster>();
-
-    m_infoCluster->setEngine(m_iceEngine);
-    m_rightGaugeCluster->m_simulator = m_simulator;
-    m_rightGaugeCluster->setEngine(m_iceEngine);
-    m_oscCluster->setSimulator(m_simulator);
-    if (m_iceEngine != nullptr) {
-        m_oscCluster->setDynoMaxRange(units::toRpm(m_iceEngine->getRedline()));
-    }
-    m_performanceCluster->setSimulator(m_simulator);
-    m_loadSimulationCluster->setSimulator(m_simulator);
-    m_mixerCluster->setSimulator(m_simulator);
-}
-
-void EngineSimApplication::startRecording() {
-    m_recording = true;
-
-#ifdef ATG_ENGINE_SIM_VIDEO_CAPTURE
-    atg_dtv::Encoder::VideoSettings settings{};
-
-    // Output filename
-    settings.fname = "../workspace/video_capture/engine_sim_video_capture.mp4";
-    settings.inputWidth = m_engine.GetScreenWidth();
-    settings.inputHeight = m_engine.GetScreenHeight();
-    settings.width = settings.inputWidth;
-    settings.height = settings.inputHeight;
-    settings.hardwareEncoding = true;
-    settings.inputAlpha = true;
-    settings.bitRate = 40000000;
-
-    m_encoder.run(settings, 2);
-#endif /* ATG_ENGINE_SIM_VIDEO_CAPTURE */
-}
-
 void EngineSimApplication::updateScreenSizeStability() {
     m_screenResolution[m_screenResolutionIndex][0] = m_engine.GetScreenWidth();
     m_screenResolution[m_screenResolutionIndex][1] = m_engine.GetScreenHeight();
 
     m_screenResolutionIndex = (m_screenResolutionIndex + 1) % ScreenResolutionHistoryLength;
-}
-
-bool EngineSimApplication::readyToRecord() {
-    const int w = m_screenResolution[0][0];
-    const int h = m_screenResolution[0][1];
-
-    if (w <= 0 && h <= 0) return false;
-    if ((w % 2) != 0 || (h % 2) != 0) return false;
-
-    for (int i = 1; i < ScreenResolutionHistoryLength; ++i) {
-        if (m_screenResolution[i][0] != w) return false;
-        if (m_screenResolution[i][1] != h) return false;
-    }
-
-    return true;
-}
-
-void EngineSimApplication::stopRecording() {
-    m_recording = false;
-
-#ifdef ATG_ENGINE_SIM_VIDEO_CAPTURE
-    m_encoder.commit();
-    m_encoder.stop();
-#endif /* ATG_ENGINE_SIM_VIDEO_CAPTURE */
-}
-
-void EngineSimApplication::recordFrame() {
-#ifdef ATG_ENGINE_SIM_VIDEO_CAPTURE
-    atg_dtv::Frame *frame = m_encoder.newFrame(false);
-    if (frame != nullptr && m_encoder.getError() == atg_dtv::Encoder::Error::None) {
-        m_engine.GetDevice()->ReadRenderTarget(m_engine.GetScreenRenderTarget(), frame->m_rgb);
-    }
-
-    m_encoder.submitFrame();
-#endif /* ATG_ENGINE_SIM_VIDEO_CAPTURE */
 }
